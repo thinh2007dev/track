@@ -8,7 +8,7 @@ export const accounts: BloxAccount[] = [
     accessories: ["Kitsune Ribbon", "Pale Scarf"], materials: { "Dragon Scale": 42, "Mystic Droplet": 118, "Demonic Wisp": 16 },
     race: "Ghoul", raceVersion: "V4", bountyHonor: 8950000, awakenedMoves: 5,
     gamepasses: ["2x Mastery", "2x Money", "Fruit Notifier"], legendaryItems: ["Dark Fragment", "Mirror Fractal"],
-    status: "Ready", lastUpdated: "2026-09-08T05:18:00Z", note: "Main PvP account"
+    status: "Ready", isOnline: true, ownedItems: { "godhuman": 1, "cursed_dual_katana": 1, "mirror_fractal": 1, "dark_fragment": 3, "skull_guitar": 1, "control": 2, "dragon": 1, "kitsune": 2, "tiger": 1, "venom": 1 }, lastUpdated: "2026-09-08T05:18:00Z", note: "Main PvP account"
   },
   {
     id: "acc-002", username: "MoonFarm_22", displayName: "Luna", level: 2478, maxLevel: 2550, sea: "Sea 3",
@@ -16,7 +16,7 @@ export const accounts: BloxAccount[] = [
     swords: ["Yama", "Tushita", "Spikey Trident"], guns: ["Kabucha"], accessories: ["Hunter Cape", "Valkyrie Helm"],
     materials: { "Conjured Cocoa": 27, "Dragon Scale": 19, "Leather": 246 }, race: "Human", raceVersion: "V3",
     bountyHonor: 3410000, awakenedMoves: 6, gamepasses: ["2x Mastery"], legendaryItems: ["God's Chalice"],
-    status: "Farming", lastUpdated: "2026-09-08T03:42:00Z", note: "Dough fully awakened"
+    status: "Farming", isOnline: true, ownedItems: { "sanguine_art": 1, "cursed_dual_katana": 1, "valkyrie_helm": 1, "dough": 2, "gravity": 1, "lightning": 1, "shadow": 1, "spirit": 1 }, lastUpdated: "2026-09-08T03:42:00Z", note: "Dough fully awakened"
   },
   {
     id: "acc-003", username: "FruitStore_X", displayName: "Vault", level: 2550, maxLevel: 2550, sea: "Sea 3",
@@ -24,7 +24,7 @@ export const accounts: BloxAccount[] = [
     swords: ["Shark Anchor", "Buddy Sword"], guns: ["Acidum Rifle", "Soul Guitar"], accessories: ["Leviathan Shield"],
     materials: { "Leviathan Scale": 31, "Electric Wing": 54, "Fool's Gold": 96 }, race: "Shark", raceVersion: "V4",
     bountyHonor: 1210000, awakenedMoves: 0, gamepasses: ["Fruit Storage", "Fast Boats"], legendaryItems: ["Leviathan Heart"],
-    status: "Ready", lastUpdated: "2026-09-07T19:15:00Z", note: "Rare fruit storage"
+    status: "Ready", isOnline: false, ownedItems: { "shark_anchor": 1, "skull_guitar": 1, "mirror_fractal": 2, "magnet": 1, "gas": 2, "mammoth": 1, "trex": 1, "yeti": 1, "tiger": 2 }, lastUpdated: "2026-09-07T19:15:00Z", note: "Rare fruit storage"
   },
   {
     id: "acc-004", username: "SeaTwoGrind", displayName: "Mochi", level: 1384, maxLevel: 2550, sea: "Sea 2",
@@ -32,7 +32,7 @@ export const accounts: BloxAccount[] = [
     swords: ["Rengoku", "Midnight Blade"], guns: ["Bizarre Rifle"], accessories: ["Swan Glasses"],
     materials: { "Ectoplasm": 74, "Vampire Fang": 12, "Magma Ore": 55 }, race: "Angel", raceVersion: "V2",
     bountyHonor: 485000, awakenedMoves: 1, gamepasses: [], legendaryItems: ["Fist of Darkness"],
-    status: "Farming", lastUpdated: "2026-09-08T04:56:00Z"
+    status: "Farming", isOnline: false, ownedItems: { "dark_fragment": 1, "dough": 1, "mammoth": 1, "venom": 1 }, lastUpdated: "2026-09-08T04:56:00Z"
   },
   {
     id: "acc-005", username: "StarterFruit_5", displayName: "Nova", level: 684, maxLevel: 2550, sea: "Sea 1",
@@ -40,6 +40,6 @@ export const accounts: BloxAccount[] = [
     swords: ["Saber", "Trident"], guns: ["Cannon"], accessories: ["Black Cape"],
     materials: { "Angel Wings": 18, "Scrap Metal": 83, "Fish Tail": 26 }, race: "Rabbit", raceVersion: "V1",
     bountyHonor: 182000, awakenedMoves: 0, gamepasses: [], legendaryItems: [],
-    status: "Paused", lastUpdated: "2026-09-05T11:20:00Z", note: "Leveling next"
+    status: "Paused", isOnline: false, ownedItems: { "lightning": 1, "gravity": 1 }, lastUpdated: "2026-09-05T11:20:00Z", note: "Leveling next"
   }
 ];

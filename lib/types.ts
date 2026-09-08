@@ -24,6 +24,8 @@ export interface BloxAccount {
   gamepasses: string[];
   legendaryItems: string[];
   status: AccountStatus;
+  isOnline: boolean;
+  ownedItems: Record<string, number>;
   lastUpdated: string;
   note?: string;
 }
