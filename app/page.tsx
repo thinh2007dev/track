@@ -41,9 +41,29 @@ export default function Dashboard() {
 
   async function load() {
     setLoading(true);
-    try { setAccounts(await new ApiAccountSource().getAccounts()); } finally { setLoading(false); }
+    try {
+      const remote = await new ApiAccountSource().getAccounts();
+      const local = JSON.parse(localStorage.getItem("fruitvault.localAccounts") ?? "[]") as BloxAccount[];
+      setAccounts([...remote.filter(a => !local.some(item => item.id === a.id)), ...local]);
+    } finally { setLoading(false); }
   }
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    const token = location.hash.startsWith("#scan=") ? location.hash.slice(6) : "";
+    if (token) {
+      try {
+        const base64 = token.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(token.length / 4) * 4, "=");
+        const bytes = Uint8Array.from(atob(base64), char => char.charCodeAt(0));
+        const account = JSON.parse(new TextDecoder().decode(bytes)) as BloxAccount;
+        const validKeys = new Set(trackedItems.map(item => item.id));
+        account.ownedItems = Object.fromEntries(Object.entries(account.ownedItems ?? {}).filter(([key, count]) => validKeys.has(key) && Number.isInteger(count) && count >= 0));
+        if (!account.id || !account.username || !Number.isFinite(account.level)) throw new Error("Invalid local scan");
+        const stored = JSON.parse(localStorage.getItem("fruitvault.localAccounts") ?? "[]") as BloxAccount[];
+        localStorage.setItem("fruitvault.localAccounts", JSON.stringify([...stored.filter(item => item.id !== account.id), account]));
+        history.replaceState(null, "", location.pathname);
+      } catch { /* Ignore malformed local imports. */ }
+    }
+    load();
+  }, []);
   useEffect(() => {
     const events = new EventSource("/api/events");
     events.addEventListener("scan", load);
