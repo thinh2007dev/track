@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { ApiAccountSource } from "../lib/account-source";
 import type { BloxAccount, Sea } from "../lib/types";
+import { trackedItems } from "../lib/item-catalog";
+import { InventoryStrip } from "../components/InventoryStrip";
 import {
   BarChart3, Boxes, ChevronDown, Coins, Database, Filter, Gem, Menu,
   PackageSearch, RefreshCw, Search, ShieldCheck, Sparkles, Swords, Users, X
@@ -30,6 +32,9 @@ export default function Dashboard() {
   const [fruit, setFruit] = useState("All");
   const [status, setStatus] = useState("All");
   const [sort, setSort] = useState("updated");
+  const [itemFilter, setItemFilter] = useState<string | null>(null);
+  const [presence, setPresence] = useState("All");
+  const [minLevel, setMinLevel] = useState(0);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<BloxAccount | null>(null);
   const [navOpen, setNavOpen] = useState(false);
@@ -39,16 +44,22 @@ export default function Dashboard() {
     try { setAccounts(await new ApiAccountSource().getAccounts()); } finally { setLoading(false); }
   }
   useEffect(() => { load(); }, []);
+  useEffect(() => {
+    const events = new EventSource("/api/events");
+    events.addEventListener("scan", load);
+    return () => events.close();
+  }, []);
 
   const fruits = useMemo(() => [...new Set(accounts.map(a => a.fruit))].sort(), [accounts]);
   const filtered = useMemo(() => accounts.filter(a => {
     const haystack = [a.username, a.displayName, a.fruit, a.fightingStyle, a.race, ...a.swords, ...a.guns, ...a.accessories].join(" ").toLowerCase();
-    return haystack.includes(query.toLowerCase()) && (sea === "All" || a.sea === sea) && (fruit === "All" || a.fruit === fruit) && (status === "All" || a.status === status);
-  }).sort((a,b) => sort === "level" ? b.level-a.level : sort === "beli" ? b.beli-a.beli : sort === "bounty" ? b.bountyHonor-a.bountyHonor : +new Date(b.lastUpdated)-+new Date(a.lastUpdated)), [accounts, query, sea, fruit, status, sort]);
+    return haystack.includes(query.toLowerCase()) && a.level >= minLevel && (sea === "All" || a.sea === sea) && (fruit === "All" || a.fruit === fruit) && (status === "All" || a.status === status) && (presence === "All" || a.isOnline === (presence === "Online")) && (!itemFilter || (a.ownedItems[itemFilter] ?? 0) > 0);
+  }).sort((a,b) => sort === "level" ? b.level-a.level : sort === "beli" ? b.beli-a.beli : sort === "fragments" ? b.fragments-a.fragments : sort === "valuable" ? Object.values(b.ownedItems).filter(Boolean).length-Object.values(a.ownedItems).filter(Boolean).length : sort === "bounty" ? b.bountyHonor-a.bountyHonor : +new Date(b.lastUpdated)-+new Date(a.lastUpdated)), [accounts, query, sea, fruit, status, presence, minLevel, sort, itemFilter]);
 
   const totalBeli = accounts.reduce((n,a)=>n+a.beli,0);
   const totalFragments = accounts.reduce((n,a)=>n+a.fragments,0);
   const maxed = accounts.filter(a=>a.level===a.maxLevel).length;
+  const aggregateInventory = useMemo(() => Object.fromEntries(trackedItems.map(item => [item.id, accounts.reduce((sum, account) => sum + (account.ownedItems[item.id] ?? 0), 0)])), [accounts]);
 
   return <div className="app-shell">
     <aside className={navOpen ? "sidebar open" : "sidebar"}>
@@ -69,11 +80,17 @@ export default function Dashboard() {
     <main>
       <header><button className="menu" onClick={()=>setNavOpen(true)}><Menu/></button><div><span className="eyebrow">BLOX FRUITS / DASHBOARD</span><h1>Account overview</h1><p>Theo dõi tiến độ, tiền tệ và kho vật phẩm trong một nơi.</p></div><button className="refresh" onClick={load}><RefreshCw className={loading ? "spin" : ""}/> Làm mới</button></header>
 
-      <section className="stats">
+      <section className="stats five">
         <StatCard icon={<Users/>} label="Tổng tài khoản" value={String(accounts.length)} hint={`${accounts.filter(a=>a.status==="Farming").length} đang farm`} tone="purple"/>
+        <StatCard icon={<ShieldCheck/>} label="Online" value={String(accounts.filter(a=>a.isOnline).length)} hint="Đang hoạt động" tone="green"/>
+        <StatCard icon={<Users/>} label="Offline" value={String(accounts.filter(a=>!a.isOnline).length)} hint="Không hoạt động" tone="purple"/>
         <StatCard icon={<Coins/>} label="Tổng Beli" value={compact.format(totalBeli)} hint={full.format(totalBeli)} tone="yellow"/>
         <StatCard icon={<Gem/>} label="Fragments" value={compact.format(totalFragments)} hint={full.format(totalFragments)} tone="cyan"/>
-        <StatCard icon={<Sparkles/>} label="Max level" value={`${maxed}/${accounts.length}`} hint={`${Math.round((maxed/(accounts.length||1))*100)}% đội hình`} tone="green"/>
+      </section>
+
+      <section className="inventory-quick">
+        <div className="quick-head"><div><span>QUICK INVENTORY</span><h2>Item &amp; Devil Fruit</h2></div>{itemFilter && <button onClick={()=>setItemFilter(null)}><X/> Xóa lọc</button>}</div>
+        <InventoryStrip inventory={aggregateInventory} selected={itemFilter} showGroupNames onSelect={key=>setItemFilter(itemFilter === key ? null : key)}/>
       </section>
 
       <section className="panel">
@@ -84,19 +101,21 @@ export default function Dashboard() {
             <select value={sea} onChange={e=>setSea(e.target.value as "All"|Sea)}><option>All</option><option>Sea 1</option><option>Sea 2</option><option>Sea 3</option></select>
             <select value={fruit} onChange={e=>setFruit(e.target.value)}><option>All</option>{fruits.map(x=><option key={x}>{x}</option>)}</select>
             <select value={status} onChange={e=>setStatus(e.target.value)}><option>All</option><option>Ready</option><option>Farming</option><option>Paused</option></select>
-            <select value={sort} onChange={e=>setSort(e.target.value)}><option value="updated">Mới cập nhật</option><option value="level">Level cao nhất</option><option value="beli">Beli nhiều nhất</option><option value="bounty">Bounty cao nhất</option></select>
+            <select value={presence} onChange={e=>setPresence(e.target.value)}><option>All</option><option>Online</option><option>Offline</option></select>
+            <input className="level-filter" type="number" min="0" max="2550" value={minLevel || ""} onChange={e=>setMinLevel(Number(e.target.value))} placeholder="Min level"/>
+            <select value={sort} onChange={e=>setSort(e.target.value)}><option value="updated">Mới cập nhật</option><option value="level">Level cao nhất</option><option value="beli">Beli nhiều nhất</option><option value="fragments">Fragments nhiều nhất</option><option value="valuable">Nhiều item nhất</option><option value="bounty">Bounty cao nhất</option></select>
           </div>
         </div>
 
         <div className="table-wrap"><table>
           <thead><tr><th>Tài khoản</th><th>Tiến độ</th><th>Tiền tệ</th><th>Devil Fruit</th><th>Race / Combat</th><th>Kho nổi bật</th><th>Trạng thái</th></tr></thead>
           <tbody>{filtered.map(a=><tr key={a.id} onClick={()=>setSelected(a)}>
-            <td><div className="account"><div className="avatar fruit">{a.displayName.slice(0,1)}</div><div><strong>{a.displayName}</strong><span>@{a.username}</span></div></div></td>
+            <td><div className="account"><div className="avatar fruit">{a.displayName.slice(0,1)}<i className={a.isOnline ? "presence on" : "presence"}/></div><div><strong>{a.displayName}</strong><span>@{a.username}</span><small className={a.isOnline ? "online-text" : "offline-text"}>{a.isOnline ? "● Online" : "● Offline"}</small></div></div></td>
             <td><strong>Lv. {full.format(a.level)}</strong><span>{a.sea} · {Math.round(a.level/a.maxLevel*100)}%</span><div className="progress"><i style={{width:`${a.level/a.maxLevel*100}%`}}/></div></td>
             <td><strong className="money">$ {compact.format(a.beli)}</strong><span className="gems">◈ {compact.format(a.fragments)} fragments</span></td>
             <td><strong>{a.fruit}</strong><span>Mastery {a.fruitMastery} · {a.awakenedMoves} awakened</span></td>
             <td><strong>{a.race} {a.raceVersion}</strong><span>{a.fightingStyle}</span></td>
-            <td><Pills items={[...a.swords,...a.guns,...a.accessories]}/></td>
+            <td><div className="row-inventory"><InventoryStrip inventory={a.ownedItems}/></div></td>
             <td><span className={`status ${a.status.toLowerCase()}`}>{a.status}</span><span>{new Date(a.lastUpdated).toLocaleDateString("vi-VN")}</span></td>
           </tr>)}</tbody>
         </table>{!loading && !filtered.length && <div className="empty"><PackageSearch/><strong>Không tìm thấy tài khoản</strong><span>Thử thay đổi từ khóa hoặc bộ lọc.</span></div>}</div>
@@ -109,6 +128,7 @@ export default function Dashboard() {
       <div className="detail-grid"><div><span>Level</span><strong>{full.format(selected.level)}</strong></div><div><span>Beli</span><strong>${full.format(selected.beli)}</strong></div><div><span>Fragments</span><strong>{full.format(selected.fragments)}</strong></div><div><span>Bounty / Honor</span><strong>{full.format(selected.bountyHonor)}</strong></div></div>
       <h3>Build hiện tại</h3><div className="build"><p><span>Devil Fruit</span><b>{selected.fruit} · Mastery {selected.fruitMastery}</b></p><p><span>Fighting Style</span><b>{selected.fightingStyle}</b></p><p><span>Race</span><b>{selected.race} {selected.raceVersion}</b></p></div>
       {[['Swords',selected.swords],['Guns',selected.guns],['Accessories',selected.accessories],['Gamepasses',selected.gamepasses],['Legendary / Quest items',selected.legendaryItems]].map(([title,items])=><div className="detail-section" key={title as string}><h3>{title as string}</h3><Pills items={items as string[]} limit={99}/></div>)}
+      <div className="detail-section"><h3>Tracked inventory</h3><div className="owned-grid">{trackedItems.filter(item => (selected.ownedItems[item.id] ?? 0) > 0).map(item=><span key={item.id}><i style={{"--item-color": item.color} as React.CSSProperties}>{item.short}</i><b>{item.name}</b><em>x{selected.ownedItems[item.id]}</em></span>)}</div></div>
       <div className="detail-section"><h3>Materials</h3><div className="materials">{Object.entries(selected.materials).map(([k,v])=><span key={k}><b>{k}</b><em>x{v}</em></span>)}</div></div>
       {selected.note && <div className="note">“{selected.note}”</div>}
     </section></div>}
