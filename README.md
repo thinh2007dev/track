@@ -20,12 +20,36 @@ Mở `http://localhost:3000`.
 
 ## Kết nối dữ liệu thật
 
-- Kiểu dữ liệu nằm trong `lib/types.ts`.
-- Dữ liệu mẫu nằm trong `lib/mock-data.ts`.
-- API mẫu là `GET /api/accounts` tại `app/api/accounts/route.ts`.
-- Lớp giao tiếp dữ liệu nằm trong `lib/account-source.ts`.
+Production nên dùng Supabase để account scan lên không bị mất khi Vercel đổi server.
 
-Hãy thay phần thân API route bằng truy vấn đến database của bạn (Supabase, Postgres, Airtable...) và trả về `{ data: BloxAccount[] }`. Giao diện không cần thay đổi.
+1. Tạo project Supabase mới.
+2. Vào **SQL Editor** và chạy:
+
+```sql
+create table if not exists public.blox_accounts (
+  id text primary key,
+  username text not null unique,
+  data jsonb not null,
+  updated_at timestamptz not null default timezone('utc', now())
+);
+
+alter table public.blox_accounts enable row level security;
+```
+
+3. Vào **Project Settings -> API** trong Supabase, lấy:
+   - Project URL
+   - `service_role` key
+4. Trong Vercel -> Project `track` -> Settings -> Environment Variables, thêm:
+
+```text
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+SCANNER_API_KEY=your-secret-scanner-key
+```
+
+5. Redeploy Production.
+
+`SUPABASE_SERVICE_ROLE_KEY` là secret server, không đưa vào browser, GitHub, script Roblox hoặc chat công khai.
 
 > Không đưa mật khẩu Roblox, cookie `.ROBLOSECURITY`, session token hoặc thông tin đăng nhập vào mã nguồn, biến môi trường hay API này. Chỉ nhập dữ liệu bạn sở hữu và được phép sử dụng.
 
@@ -48,6 +72,17 @@ File này mở dashboard với snapshot mẫu trong URL fragment (phần sau `#`
 
 API kiểm tra Roblox user ID, timestamp, khoảng số, item key và giới hạn 30 request/phút/scanner. Account mới được tự động thêm vào dashboard. `/api/events` gửi sự kiện SSE để giao diện tải lại sau một scan.
 
+API cũng nhận trực tiếp JSON dạng `XeroItemScanResult` có các field `Username`, `UserId`, `Stats` và `Checks`. Tracker sẽ dùng `UserId` hoặc `username` để cập nhật account cũ, nên một username không bị lặp thành nhiều dòng.
+
+Nếu scanner của bạn đã ghi file vào thư mục `XeroScans`, có thể chạy watcher PowerShell để tự gửi file JSON mới lên tracker:
+
+```powershell
+$env:SCANNER_API_KEY="your-secret-key"
+powershell -ExecutionPolicy Bypass -File .\scripts\watch-xero-scans.ps1 -TrackerUrl "https://track-snowy.vercel.app"
+```
+
+Watcher chỉ đọc các file `*-item-scan.json` đã được tạo sẵn rồi gửi lên `/api/scans`; nó không inject vào Roblox, không đọc bộ nhớ game và không cần Node.
+
 Các adapter an toàn nằm trong `lib/providers.ts`:
 
 - `RobloxPresenceProvider`: kiểm tra online/offline bằng Roblox Presence API.
@@ -55,6 +90,10 @@ Các adapter an toàn nằm trong `lib/providers.ts`:
 - `AuthorizedGameProvider`: điểm nối dành cho nguồn dữ liệu được chủ game cho phép.
 
 Không có executor, DLL injection, memory reading, cookie Roblox hay anti-cheat bypass trong project.
+
+### Roblox Luau (chỉ dành cho game bạn sở hữu)
+
+`scripts/scanner.server.lua` là ServerScript Luau không cần Node/executor. Đặt nó trong `ServerScriptService`, bật **Allow HTTP Requests**, đặt `SCANNER_API_KEY`, rồi nối hàm `collectSnapshot()` với cấu trúc dữ liệu của game bạn. Roblox không cho chèn ServerScript này vào experience của người khác.
 
 ## PostgreSQL / Prisma
 
