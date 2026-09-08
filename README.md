@@ -41,12 +41,10 @@ X-Scanner-Id: <scanner-id>
 Trên Windows không cần cài Node cho scanner. Chạy `scripts/scanner.ps1` bằng PowerShell:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\scanner.ps1 `
-  -TrackerUrl "https://track-snowy.vercel.app" `
-  -ApiKey "YOUR_SCANNER_API_KEY"
+powershell -ExecutionPolicy Bypass -File .\scripts\scanner.ps1
 ```
 
-File này là client gửi snapshot mẫu qua HTTPS. Hãy thay dữ liệu mẫu bằng output từ một provider được game cho phép; file không đọc bộ nhớ Roblox và không inject vào client.
+File này mở dashboard với snapshot mẫu trong URL fragment (phần sau `#`, không được gửi tới Vercel), sau đó dashboard lưu account trong localStorage của trình duyệt. Hãy thay `$snapshot` bằng output từ một provider được game cho phép; file không đọc bộ nhớ Roblox và không inject vào client.
 
 API kiểm tra Roblox user ID, timestamp, khoảng số, item key và giới hạn 30 request/phút/scanner. Account mới được tự động thêm vào dashboard. `/api/events` gửi sự kiện SSE để giao diện tải lại sau một scan.
 
