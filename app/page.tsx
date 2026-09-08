@@ -12,6 +12,7 @@ import {
 
 const compact = new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 });
 const full = new Intl.NumberFormat("en-US");
+const trackedFruits = trackedItems.filter(item => item.kind === "fruit");
 
 function StatCard({ icon, label, value, hint, tone }: { icon: React.ReactNode; label: string; value: string; hint: string; tone: string }) {
   return <article className="stat-card">
@@ -30,6 +31,7 @@ export default function Dashboard() {
   const [query, setQuery] = useState("");
   const [sea, setSea] = useState<"All" | Sea>("All");
   const [fruit, setFruit] = useState("All");
+  const [ownedFruit, setOwnedFruit] = useState("All");
   const [status, setStatus] = useState("All");
   const [sort, setSort] = useState("updated");
   const [itemFilter, setItemFilter] = useState<string | null>(null);
@@ -39,12 +41,24 @@ export default function Dashboard() {
   const [selected, setSelected] = useState<BloxAccount | null>(null);
   const [navOpen, setNavOpen] = useState(false);
 
+  function mergeUniqueAccounts(remote: BloxAccount[], local: BloxAccount[]) {
+    const merged = new Map<string, BloxAccount>();
+    [...remote, ...local].forEach(account => {
+      const key = account.username.trim().toLowerCase() || account.id;
+      const current = merged.get(key);
+      if (!current || +new Date(account.lastUpdated) >= +new Date(current.lastUpdated)) {
+        merged.set(key, account);
+      }
+    });
+    return [...merged.values()];
+  }
+
   async function load() {
     setLoading(true);
     try {
       const remote = await new ApiAccountSource().getAccounts();
       const local = JSON.parse(localStorage.getItem("fruitvault.localAccounts") ?? "[]") as BloxAccount[];
-      setAccounts([...remote.filter(a => !local.some(item => item.id === a.id)), ...local]);
+      setAccounts(mergeUniqueAccounts(remote, local));
     } finally { setLoading(false); }
   }
   useEffect(() => {
@@ -58,7 +72,8 @@ export default function Dashboard() {
         account.ownedItems = Object.fromEntries(Object.entries(account.ownedItems ?? {}).filter(([key, count]) => validKeys.has(key) && Number.isInteger(count) && count >= 0));
         if (!account.id || !account.username || !Number.isFinite(account.level)) throw new Error("Invalid local scan");
         const stored = JSON.parse(localStorage.getItem("fruitvault.localAccounts") ?? "[]") as BloxAccount[];
-        localStorage.setItem("fruitvault.localAccounts", JSON.stringify([...stored.filter(item => item.id !== account.id), account]));
+        const next = mergeUniqueAccounts(stored.filter(item => item.id !== account.id), [account]);
+        localStorage.setItem("fruitvault.localAccounts", JSON.stringify(next));
         history.replaceState(null, "", location.pathname);
       } catch { /* Ignore malformed local imports. */ }
     }
@@ -73,8 +88,8 @@ export default function Dashboard() {
   const fruits = useMemo(() => [...new Set(accounts.map(a => a.fruit))].sort(), [accounts]);
   const filtered = useMemo(() => accounts.filter(a => {
     const haystack = [a.username, a.displayName, a.fruit, a.fightingStyle, a.race, ...a.swords, ...a.guns, ...a.accessories].join(" ").toLowerCase();
-    return haystack.includes(query.toLowerCase()) && a.level >= minLevel && (sea === "All" || a.sea === sea) && (fruit === "All" || a.fruit === fruit) && (status === "All" || a.status === status) && (presence === "All" || a.isOnline === (presence === "Online")) && (!itemFilter || (a.ownedItems[itemFilter] ?? 0) > 0);
-  }).sort((a,b) => sort === "level" ? b.level-a.level : sort === "beli" ? b.beli-a.beli : sort === "fragments" ? b.fragments-a.fragments : sort === "valuable" ? Object.values(b.ownedItems).filter(Boolean).length-Object.values(a.ownedItems).filter(Boolean).length : sort === "bounty" ? b.bountyHonor-a.bountyHonor : +new Date(b.lastUpdated)-+new Date(a.lastUpdated)), [accounts, query, sea, fruit, status, presence, minLevel, sort, itemFilter]);
+    return haystack.includes(query.toLowerCase()) && a.level >= minLevel && (sea === "All" || a.sea === sea) && (fruit === "All" || a.fruit === fruit) && (ownedFruit === "All" || (a.ownedItems[ownedFruit] ?? 0) > 0) && (status === "All" || a.status === status) && (presence === "All" || a.isOnline === (presence === "Online")) && (!itemFilter || (a.ownedItems[itemFilter] ?? 0) > 0);
+  }).sort((a,b) => sort === "level" ? b.level-a.level : sort === "beli" ? b.beli-a.beli : sort === "fragments" ? b.fragments-a.fragments : sort === "valuable" ? Object.values(b.ownedItems).filter(Boolean).length-Object.values(a.ownedItems).filter(Boolean).length : sort === "bounty" ? b.bountyHonor-a.bountyHonor : +new Date(b.lastUpdated)-+new Date(a.lastUpdated)), [accounts, query, sea, fruit, ownedFruit, status, presence, minLevel, sort, itemFilter]);
 
   const totalBeli = accounts.reduce((n,a)=>n+a.beli,0);
   const totalFragments = accounts.reduce((n,a)=>n+a.fragments,0);
@@ -120,6 +135,7 @@ export default function Dashboard() {
           <div className="filters"><Filter/>
             <select value={sea} onChange={e=>setSea(e.target.value as "All"|Sea)}><option>All</option><option>Sea 1</option><option>Sea 2</option><option>Sea 3</option></select>
             <select value={fruit} onChange={e=>setFruit(e.target.value)}><option>All</option>{fruits.map(x=><option key={x}>{x}</option>)}</select>
+            <select value={ownedFruit} onChange={e=>setOwnedFruit(e.target.value)}><option value="All">Fruit trong kho</option>{trackedFruits.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select>
             <select value={status} onChange={e=>setStatus(e.target.value)}><option>All</option><option>Ready</option><option>Farming</option><option>Paused</option></select>
             <select value={presence} onChange={e=>setPresence(e.target.value)}><option>All</option><option>Online</option><option>Offline</option></select>
             <input className="level-filter" type="number" min="0" max="2550" value={minLevel || ""} onChange={e=>setMinLevel(Number(e.target.value))} placeholder="Min level"/>
