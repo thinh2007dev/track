@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "scan:mock": "node scripts/mock-scanner.mjs",
+    "db:generate": "npx prisma generate",
+    "db:migrate": "npx prisma migrate deploy"
   },
   "dependencies": {
     "lucide-react": "^1.43.0",

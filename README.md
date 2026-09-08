@@ -28,3 +28,43 @@ Mở `http://localhost:3000`.
 Hãy thay phần thân API route bằng truy vấn đến database của bạn (Supabase, Postgres, Airtable...) và trả về `{ data: BloxAccount[] }`. Giao diện không cần thay đổi.
 
 > Không đưa mật khẩu Roblox, cookie `.ROBLOSECURITY`, session token hoặc thông tin đăng nhập vào mã nguồn, biến môi trường hay API này. Chỉ nhập dữ liệu bạn sở hữu và được phép sử dụng.
+
+## Scanner API hợp lệ
+
+`POST /api/scans` nhận snapshot từ một nguồn được Blox Fruits cho phép. Request cần hai header:
+
+```text
+Authorization: Bearer <SCANNER_API_KEY>
+X-Scanner-Id: <scanner-id>
+```
+
+Trên Windows không cần cài Node cho scanner. Chạy `scripts/scanner.ps1` bằng PowerShell:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\scanner.ps1 `
+  -TrackerUrl "https://track-snowy.vercel.app" `
+  -ApiKey "YOUR_SCANNER_API_KEY"
+```
+
+File này là client gửi snapshot mẫu qua HTTPS. Hãy thay dữ liệu mẫu bằng output từ một provider được game cho phép; file không đọc bộ nhớ Roblox và không inject vào client.
+
+API kiểm tra Roblox user ID, timestamp, khoảng số, item key và giới hạn 30 request/phút/scanner. Account mới được tự động thêm vào dashboard. `/api/events` gửi sự kiện SSE để giao diện tải lại sau một scan.
+
+Các adapter an toàn nằm trong `lib/providers.ts`:
+
+- `RobloxPresenceProvider`: kiểm tra online/offline bằng Roblox Presence API.
+- `MockBloxFruitsProvider`: dữ liệu phát triển.
+- `AuthorizedGameProvider`: điểm nối dành cho nguồn dữ liệu được chủ game cho phép.
+
+Không có executor, DLL injection, memory reading, cookie Roblox hay anti-cheat bypass trong project.
+
+## PostgreSQL / Prisma
+
+Schema đầy đủ nằm tại `prisma/schema.prisma`; migration đầu tiên nằm trong `prisma/migrations`. Sao chép `.env.example` thành `.env`, đặt `DATABASE_URL`, rồi chạy:
+
+```bash
+npm run db:generate
+npm run db:migrate
+```
+
+Production cần đặt `SCANNER_API_KEY` trong Vercel Environment Variables trước khi nhận scan.
