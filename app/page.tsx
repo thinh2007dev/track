@@ -7,17 +7,18 @@ import { trackedItems } from "../lib/item-catalog";
 import { InventoryStrip } from "../components/InventoryStrip";
 import {
   BarChart3, Boxes, ChevronDown, Coins, Database, Filter, Gem, Menu,
-  PackageSearch, RefreshCw, Search, ShieldCheck, Sparkles, Swords, Users, X
+  PackageSearch, RefreshCw, Search, ShieldCheck, Sparkles, Swords, Trash2, Users, X
 } from "lucide-react";
 
 const compact = new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 });
 const full = new Intl.NumberFormat("en-US");
 const trackedFruits = trackedItems.filter(item => item.kind === "fruit");
 
-function StatCard({ icon, label, value, hint, tone }: { icon: React.ReactNode; label: string; value: string; hint: string; tone: string }) {
+function StatCard({ icon, label, value, hint, tone, action }: { icon: React.ReactNode; label: string; value: string; hint: string; tone: string; action?: React.ReactNode }) {
   return <article className="stat-card">
     <div className={`stat-icon ${tone}`}>{icon}</div>
     <div><p>{label}</p><strong>{value}</strong><small>{hint}</small></div>
+    {action}
   </article>;
 }
 
@@ -38,6 +39,7 @@ export default function Dashboard() {
   const [presence, setPresence] = useState("All");
   const [minLevel, setMinLevel] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [clearing, setClearing] = useState(false);
   const [selected, setSelected] = useState<BloxAccount | null>(null);
   const [navOpen, setNavOpen] = useState(false);
 
@@ -61,6 +63,27 @@ export default function Dashboard() {
       setAccounts(mergeUniqueAccounts(remote, local));
     } finally { setLoading(false); }
   }
+
+  async function clearAllAccounts() {
+    if (!accounts.length || clearing) return;
+    const ok = confirm("Bạn muốn xóa tất cả tài khoản không? Khi xóa thì toàn bộ dữ liệu account trong tracker sẽ mất đi.");
+    if (!ok) return;
+    const key = prompt("Nhập SCANNER_API_KEY để xác nhận xóa tất cả tài khoản:");
+    if (!key) return;
+    setClearing(true);
+    try {
+      const response = await fetch("/api/accounts", { method: "DELETE", headers: { "X-Admin-Key": key } });
+      if (!response.ok) {
+        alert("Không xóa được. Key sai hoặc server chưa cập nhật.");
+        return;
+      }
+      localStorage.removeItem("fruitvault.localAccounts");
+      setAccounts([]);
+      setSelected(null);
+    } finally {
+      setClearing(false);
+    }
+  }
   useEffect(() => {
     const token = location.hash.startsWith("#scan=") ? location.hash.slice(6) : "";
     if (token) {
@@ -83,6 +106,10 @@ export default function Dashboard() {
     const events = new EventSource("/api/events");
     events.addEventListener("scan", load);
     return () => events.close();
+  }, []);
+  useEffect(() => {
+    const interval = setInterval(load, 15_000);
+    return () => clearInterval(interval);
   }, []);
 
   const fruits = useMemo(() => [...new Set(accounts.map(a => a.fruit))].sort(), [accounts]);
@@ -116,7 +143,7 @@ export default function Dashboard() {
       <header><button className="menu" onClick={()=>setNavOpen(true)}><Menu/></button><div><span className="eyebrow">BLOX FRUITS / DASHBOARD</span><h1>Account overview</h1><p>Theo dõi tiến độ, tiền tệ và kho vật phẩm trong một nơi.</p></div><button className="refresh" onClick={load}><RefreshCw className={loading ? "spin" : ""}/> Làm mới</button></header>
 
       <section className="stats five">
-        <StatCard icon={<Users/>} label="Tổng tài khoản" value={String(accounts.length)} hint={`${accounts.filter(a=>a.status==="Farming").length} đang farm`} tone="purple"/>
+        <StatCard icon={<Users/>} label="Tổng tài khoản" value={String(accounts.length)} hint={`${accounts.filter(a=>a.status==="Farming").length} đang farm`} tone="purple" action={<button className="danger-icon" onClick={clearAllAccounts} title="Xóa tất cả tài khoản" disabled={!accounts.length || clearing}><Trash2/></button>}/>
         <StatCard icon={<ShieldCheck/>} label="Online" value={String(accounts.filter(a=>a.isOnline).length)} hint="Đang hoạt động" tone="green"/>
         <StatCard icon={<Users/>} label="Offline" value={String(accounts.filter(a=>!a.isOnline).length)} hint="Không hoạt động" tone="purple"/>
         <StatCard icon={<Coins/>} label="Tổng Beli" value={compact.format(totalBeli)} hint={full.format(totalBeli)} tone="yellow"/>
@@ -129,7 +156,7 @@ export default function Dashboard() {
       </section>
 
       <section className="panel">
-        <div className="panel-head"><div><h2>Danh sách tài khoản</h2><p>{filtered.length} trong {accounts.length} tài khoản</p></div><div className="view-note"><Database/> Mock API connected</div></div>
+        <div className="panel-head"><div><h2>Danh sách tài khoản</h2><p>{filtered.length} trong {accounts.length} tài khoản</p></div><div className="view-note"><Database/> Supabase/API connected</div></div>
         <div className="toolbar">
           <label className="search"><Search/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Tìm username, fruit, sword..."/></label>
           <div className="filters"><Filter/>

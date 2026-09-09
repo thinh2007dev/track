@@ -4,6 +4,7 @@ import type { BloxAccount } from "./types";
 const globalStore = globalThis as unknown as { fruitVaultAccounts?: Map<string, BloxAccount> };
 const accountStore = globalStore.fruitVaultAccounts ?? new Map(seedAccounts.map(account => [account.id, account]));
 globalStore.fruitVaultAccounts = accountStore;
+const ONLINE_WINDOW_MS = 90_000;
 
 type SupabaseAccountRow = {
   id: string;
@@ -33,7 +34,10 @@ export function isSupabaseConfigured() {
 
 function dedupeAccounts(accounts: BloxAccount[]) {
   const seenUsernames = new Set<string>();
-  return accounts.filter(account => {
+  return accounts.map(account => ({
+    ...account,
+    isOnline: Date.now() - new Date(account.lastUpdated).getTime() <= ONLINE_WINDOW_MS,
+  })).filter(account => {
     const key = account.username.trim().toLowerCase();
     if (seenUsernames.has(key)) return false;
     seenUsernames.add(key);
@@ -53,6 +57,10 @@ function upsertMemoryAccount(account: BloxAccount) {
   }
   accountStore.set(account.id, account);
   return account;
+}
+
+function clearMemoryAccounts() {
+  accountStore.clear();
 }
 
 export async function listAccounts() {
@@ -100,4 +108,18 @@ export async function upsertAccount(account: BloxAccount) {
   if (!response.ok) throw new Error(`Supabase upsert failed: ${response.status}`);
 
   return account;
+}
+
+export async function clearAccounts() {
+  const config = getSupabaseConfig();
+  if (!config) {
+    clearMemoryAccounts();
+    return;
+  }
+
+  const response = await fetch(`${config.url}/rest/v1/blox_accounts?id=not.is.null`, {
+    method: "DELETE",
+    headers: supabaseHeaders(config.key),
+  });
+  if (!response.ok) throw new Error(`Supabase clear failed: ${response.status}`);
 }
