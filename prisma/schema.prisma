@@ -1,0 +1,55 @@
+generator client { provider = "prisma-client-js" }
+datasource db { provider = "postgresql"; url = env("DATABASE_URL") }
+
+model Account {
+  id              String        @id @default(cuid())
+  robloxUserId    String        @unique @map("roblox_user_id")
+  username        String
+  displayName     String        @map("display_name")
+  avatarUrl       String?       @map("avatar_url")
+  onlineStatus    String        @default("offline") @map("online_status")
+  lastOnlineAt    DateTime?     @map("last_online_at")
+  presenceCheckedAt DateTime?   @map("presence_checked_at")
+  lastScanAt      DateTime?     @map("last_scan_at")
+  scanStatus      String        @default("pending") @map("scan_status")
+  level           Int           @default(0)
+  beli            BigInt        @default(0)
+  fragments       BigInt        @default(0)
+  currentFruit    String?       @map("current_fruit")
+  race            String?
+  sea             Int           @default(1)
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  items           AccountItem[]
+  scanLogs        ScanLog[]
+  @@map("accounts")
+}
+
+model AccountItem {
+  id          String   @id @default(cuid())
+  accountId   String   @map("account_id")
+  itemKey     String   @map("item_key")
+  itemName    String   @map("item_name")
+  category    String
+  quantity    Int      @default(0)
+  owned       Boolean  @default(false)
+  permanent   Boolean  @default(false)
+  mastery     Int?
+  metadata    Json?
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  account     Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  @@unique([accountId, itemKey])
+  @@map("account_items")
+}
+
+model ScanLog {
+  id           String   @id @default(cuid())
+  accountId    String   @map("account_id")
+  startedAt    DateTime @map("started_at")
+  finishedAt   DateTime? @map("finished_at")
+  status       String
+  errorMessage String?  @map("error_message")
+  rawSnapshot  Json?    @map("raw_snapshot")
+  account      Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  @@map("scan_logs")
+}
